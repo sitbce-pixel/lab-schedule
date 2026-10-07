@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実験日程調整</title>
+<style>
+:root{
+  --bg:#F4F5F7; --surface:#FFFFFF; --ink:#1D2129; --muted:#5F6672; --faint:#9AA0A9; --line:#DADDE2; --line-2:#ECEEF1;
+  --accent:#234A8A; --accent-hover:#1B3B70; --on-accent:#FFFFFF; --accent-soft:#E6ECF6;
+  --maybe:#8A6100; --maybe-soft:#F6EDD5;
+  --room:#C62828; --room-soft:#FBE9E9; --other:#9AA0A9;
+  --danger:#B42318;
+  --font:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#141619; --surface:#1B1E22; --ink:#E6E8EB; --muted:#A3A9B2; --faint:#6E747C; --line:#33373D; --line-2:#262A2F;
+    --accent:#8DB0EE; --accent-hover:#A8C3F3; --on-accent:#0F1B2E; --accent-soft:#1F2C42;
+    --maybe:#E0B550; --maybe-soft:#3A2F14;
+    --room:#F07070; --room-soft:#3A1D1E; --other:#757C85;
+    --danger:#F97066;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.6;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2{margin:0;font-weight:700;line-height:1.4}
+h1{font-size:20px}
+h2{font-size:15px}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* layout */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1080px;margin:0 auto;padding:0 20px;height:52px;display:flex;align-items:center;gap:24px}
+.brand{background:none;border:0;padding:0;font-weight:700;font-size:16px;cursor:pointer}
+.nav{display:flex;gap:4px;margin-right:auto;height:100%}
+.nav button{background:none;border:0;border-bottom:2px solid transparent;padding:0 10px;cursor:pointer;color:var(--muted);height:100%}
+.nav button:hover{color:var(--ink)}
+.nav button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+@media (max-width:560px){.top-in{padding:8px 16px 0;gap:8px 12px;height:auto;flex-wrap:wrap;justify-content:space-between}.nav{order:3;width:100%;height:40px}.wrap{padding:20px 16px 56px}}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.back{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-size:14px;margin-bottom:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.sep{color:var(--faint);margin:0 6px}
+.room-t{color:var(--room);font-weight:700}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.join{border-color:var(--accent);color:var(--accent);font-weight:700}
+.btn.join:hover{background:var(--accent-soft)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px;font-size:13px}
+.link.danger{color:var(--danger)}
+.inp{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--surface);font-size:15px}
+.inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
+textarea.inp{resize:vertical;min-height:60px;line-height:1.6}
+.f{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+
+/* list */
+.list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 20px;align-items:center;padding:14px 18px;border-top:1px solid var(--line-2)}
+.row:first-child{border-top:0}
+.row.ended{opacity:.6}
+.row .title{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-size:16px;font-weight:700;color:var(--ink)}
+.row .title:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.row .meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;font-size:13px;color:var(--muted);margin-top:3px}
+.stat{display:inline-flex;align-items:center;gap:8px;color:var(--ink)}
+.ppl{display:inline-flex;flex-wrap:wrap;gap:2px;max-width:232px}
+.ppl i{width:10px;height:10px;border-radius:2px;border:1px solid var(--line);box-sizing:border-box}
+.ppl i.c{background:var(--accent);border-color:var(--accent)}
+.ppl i.a{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.keys{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.keys span{display:inline-flex;align-items:center;gap:5px}
+.keys .kc,.keys .ka{width:10px;height:10px;border-radius:2px;background:var(--accent)}
+.keys .ka{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);box-sizing:border-box}
+.row .acts{display:flex;gap:8px}
+@media (max-width:640px){.row{grid-template-columns:1fr}}
+.empty{padding:32px 18px;color:var(--muted);text-align:center}
+
+/* study page */
+.sh{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px 20px;display:grid;gap:12px}
+@media (max-width:560px){.sh{padding:16px}}
+.facts{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0;font-size:14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0}
+.desc{white-space:pre-wrap;max-width:68ch;font-size:14px}
+.share{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line-2)}
+.share code{font-family:inherit;user-select:all;word-break:break-all;color:var(--muted)}
+.share .del{margin-left:auto;display:inline-flex;align-items:center;gap:14px}
+.tabs{display:flex;gap:0;margin:20px 0 16px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 16px;cursor:pointer;color:var(--muted);font-size:15px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+
+/* answer */
+.ans{display:grid;gap:14px}
+.ans-top{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.ans-top .f{min-width:200px;flex:1;max-width:320px}
+.msg{font-size:14px;color:var(--accent);font-weight:700}
+.bar2{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
+.legend{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend b{font-weight:700}
+.legend .o{color:var(--accent)} .legend .t{color:var(--maybe)} .legend .x{color:var(--room)}
+.weeknav{display:flex;align-items:center;gap:8px}
+.weeknav .wl{min-width:108px;text-align:center;font-size:14px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pick{border-collapse:separate;border-spacing:3px;width:100%}
+.pick thead th{font-weight:400;font-size:13px;padding-bottom:2px}
+.dh{display:block;width:100%;background:none;border:0;padding:2px;border-radius:4px;cursor:pointer;line-height:1.35;font-size:13px}
+button.dh:hover{background:var(--accent-soft)}
+.dh.out{color:var(--faint);cursor:default}
+.dh .w{display:block;font-size:12px;color:var(--muted)}
+.dh.sat .w{color:#3B63B8} .dh.sun .w{color:var(--danger)}
+.pick .tm{font-size:13px;color:var(--muted);text-align:right;padding-right:4px;white-space:nowrap;width:1%;font-weight:400}
+.cell{display:grid;place-items:center;width:100%;min-width:44px;height:36px;border-radius:3px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;color:var(--faint)}
+button.cell:hover{border-color:var(--accent)}
+.cell.o{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.pick.dense .cell{height:28px;font-size:14px}
+.cell.t{background:var(--maybe-soft);border-color:var(--maybe-soft);color:var(--maybe)}
+.cell.busy{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--room) 28%,transparent) 0 1.5px,var(--room-soft) 1.5px 7px);border-color:transparent;color:var(--room);font-size:11px;font-weight:400;cursor:not-allowed}
+.cell.off{background:transparent;border:1px dashed var(--line-2);cursor:default}
+.submit{position:sticky;bottom:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;background:var(--bg);border-top:1px solid var(--line)}
+.submit .r{display:flex;align-items:center;gap:14px}
+
+/* tally */
+.sum{font-size:14px;margin-bottom:10px}
+.sum b{font-size:16px}
+.tbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;color:var(--muted)}
+.chk{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.chk input{margin:0;accent-color:var(--accent)}
+.agg-wrap{background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow-x:auto}
+table.agg{border-collapse:collapse;width:100%;font-size:14px}
+.agg th,.agg td{border-bottom:1px solid var(--line-2);padding:5px 8px;text-align:center;white-space:nowrap}
+.agg tbody tr:last-child th,.agg tbody tr:last-child td{border-bottom:0}
+.agg thead th{background:var(--bg);font-weight:400;color:var(--muted);font-size:13px;vertical-align:bottom}
+.agg .slot{position:sticky;left:0;background:var(--surface);text-align:left;z-index:1;border-right:1px solid var(--line-2);width:1%}
+.agg thead .slot{background:var(--bg);z-index:2}
+.agg .cnt{color:var(--muted);width:32px}
+.agg .cnt.hi{color:var(--accent);font-weight:700}
+.pname{display:block;color:var(--ink);font-weight:700}
+.pst{display:block;font-size:12px;color:var(--faint)}
+.pst.ok{color:var(--accent)}
+.ac{min-width:40px;height:28px;padding:0 8px;border-radius:3px;border:1px solid transparent;background:none;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.ac.o{background:var(--accent-soft);color:var(--accent)}
+.ac.t{background:var(--maybe-soft);color:var(--maybe)}
+button.ac.o:hover,button.ac.t:hover{border-color:var(--accent)}
+.ac.done{background:var(--accent);color:var(--on-accent);font-size:12px}
+.ac:disabled{opacity:.35;cursor:not-allowed}
+.agg tr.busy td,.agg tr.busy th.slot{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--room) 16%,transparent) 0 1.5px,var(--room-soft) 1.5px 8px)}
+.busyl{display:block;font-size:12px;color:var(--room)}
+.cap{display:block;font-size:12px;color:var(--muted)}
+.agg tr.past{opacity:.45}
+.below{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:24px;align-items:start}
+.below h2{padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.plain{list-style:none;margin:0;padding:0}
+.plain li{padding:8px 0;border-bottom:1px solid var(--line-2);font-size:14px}
+.plain .when{display:inline-block;min-width:150px;color:var(--muted)}
+
+/* new study */
+.newgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+@media (max-width:860px){.newgrid{grid-template-columns:1fr}}
+.form{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:20px;display:grid;gap:20px}
+@media (max-width:560px){.form{padding:16px}}
+.form fieldset{border:0;padding:0;margin:0;display:grid;gap:12px;min-width:0}
+.form legend{font-weight:700;font-size:14px;padding:0 0 6px;margin-bottom:8px;border-bottom:1px solid var(--line-2);width:100%}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.days label{position:relative}
+.days input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.days span{display:grid;place-items:center;width:38px;height:34px;border:1px solid var(--line);border-radius:4px;color:var(--ink)}
+.days input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.days input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.roomck{display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:14px}
+.roomck input{margin:4px 0 0;accent-color:var(--room);width:16px;height:16px}
+.roomck small{display:block;color:var(--muted);font-size:13px}
+.preview{position:sticky;top:68px;font-size:14px}
+@media (max-width:860px){.preview{position:static}}
+.preview h2{margin-bottom:8px}
+.pv-list{list-style:none;margin:6px 0 0;padding:0;font-size:13px;max-height:240px;overflow:auto}
+.pv-list li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line-2)}
+.pv-list li span:last-child{color:var(--room);text-align:right}
+.err{color:var(--danger);font-size:13px}
+.formacts{display:flex;gap:10px;flex-wrap:wrap}
+
+/* help */
+.help{max-width:760px}
+.help h2{margin:24px 0 6px}
+.help p{font-size:14px}
+.steps{list-style:none;counter-reset:s;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.steps li{counter-increment:s;position:relative;padding:14px 18px 14px 56px;border-top:1px solid var(--line-2)}
+.steps li:first-child{border-top:0}
+.steps li::before{content:counter(s);position:absolute;left:18px;top:14px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:13px;display:grid;place-items:center}
+.steps b{display:block;font-size:15px}
+.steps p{color:var(--muted);margin-top:2px}
+.demo{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px;font-size:13px;color:var(--muted)}
+.demo .cell{width:44px;min-width:44px;height:32px;cursor:default}
+.demo .gap{width:8px}
+
+/* calendar */
+.calbar{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;margin-bottom:12px}
+.wk-wrap{background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow-x:auto}
+.wk{min-width:700px}
+.wk-head,.wk-body{display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr))}
+.wk-head{border-bottom:1px solid var(--line)}
+.wd{padding:6px 4px;text-align:center;border-left:1px solid var(--line-2);font-size:13px;line-height:1.35}
+.wd .w{display:block;font-size:12px;color:var(--muted)}
+.wd.today{color:var(--accent);font-weight:700}
+.wd.sat .w{color:#3B63B8} .wd.sun .w{color:var(--danger)}
+.gut{position:relative}
+.gut span{position:absolute;right:6px;margin-top:2px;font-size:11px;color:var(--faint)}
+.col{position:relative;border-left:1px solid var(--line-2);background-image:linear-gradient(to bottom,var(--line-2) 1px,transparent 1px);background-size:100% var(--hpx)}
+.col.we{background-color:color-mix(in srgb,var(--bg) 60%,transparent)}
+.ev{position:absolute;display:block;padding:2px 4px 2px 6px;border:0;border-left:4px solid var(--other);border-radius:0;background:color-mix(in srgb,var(--other) 18%,var(--surface));color:var(--muted);font-size:11px;font-weight:700;line-height:1.35;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;z-index:1}
+.ev.room{border-left-color:var(--room);background:var(--room-soft);color:var(--room)}
+.ev:hover{background:color-mix(in srgb,var(--other) 32%,var(--surface))}
+.ev.room:hover{background:color-mix(in srgb,var(--room) 24%,var(--surface))}
+.now{position:absolute;left:0;right:0;height:2px;background:var(--accent);z-index:2;pointer-events:none}
+.legend2{display:flex;gap:6px 18px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted);align-items:center}
+.legend2 span{display:inline-flex;align-items:center;gap:6px}
+.evsw{display:inline-block;width:18px;height:14px;border-left:4px solid var(--other);background:color-mix(in srgb,var(--other) 18%,var(--surface))}
+.evsw.room{border-left-color:var(--room);background:var(--room-soft)}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,12px);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:4px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:50;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+/*
+ * 画面は GitHub Pages に置き、データの読み書きだけ Apps Script に頼む。
+ * fetch は Google のログイン情報を送らないので、どのアカウントでログインしていても同じように開ける。
+ */
+const API = 'https://script.google.com/macros/s/AKfycbxKIsnccB4PDuqBnLUGmZOXV4ycZqYbLhZWZzlLvRlsnQhYT-4ApQ9TUGqcffCzrl_v/exec';
+const PARAMS = new URLSearchParams(location.search);
+const appUrl = () => location.origin + location.pathname;
+async function api(fn, arg){
+  const res = fn === 'apiState'
+    ? await fetch(`${API}?api=state`)
+    : await fetch(API, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body:JSON.stringify({ fn, arg }) });
+  if (!res.ok) throw new Error('通信できませんでした');
+  const d = await res.json();
+  if (d && d.error) throw new Error(d.error);
+  return d;
+}
+const DOW = ['日','月','火','水','木','金','土'];
+const ORDER = [1,2,3,4,5,6,0];
+const DURS = [30,45,60,90,120,150,180];
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (s,n) => { const d = parseYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
+const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+const hm = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;      // 保存用（10:00）
+const tm = m => `${Math.floor(m/60)}:${pad(m%60)}`;           // 表示用（9:00）
+const md = s => { const d = parseYmd(s); return `${d.getMonth()+1}/${d.getDate()}`; };
+const dow = s => parseYmd(s).getDay();
+const fmtDate = s => `${md(s)}(${DOW[dow(s)]})`;
+const span = (a, b) => `${a}〜${b}`;
+const mondayOf = s => addDays(s, -((dow(s)+6)%7));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NOW = new Date();
+const TODAY = ymd(NOW);
+const NOWMIN = NOW.getHours()*60 + NOW.getMinutes();
+
+let S = { studies:[], responses:[], assign:[] };
+let BK = null;
+const defaultDraft = () => ({ title:'', owner:'', desc:'', start:addDays(TODAY,1), end:addDays(TODAY,14), days:[1,2,3,4,5], from:'10:00', to:'17:00', dur:60, step:0, per:1, target:8, room:true, place:'', equip:'' });
+const ui = { view:'list', studyId:null, tab:'answer', answer:null, aggAll:false, calWeek:mondayOf(TODAY), draft:defaultDraft(), helpTab:'join', editId:null, saveArm:false, delArm:null, delRespArm:null };
+
+/* ---------- model ---------- */
+const study = id => S.studies.find(s => s.id === id);
+const respOf = sid => S.responses.filter(r => r.studyId === sid);
+const asgOf = sid => S.assign.filter(a => a.studyId === sid);
+function slotsOf(st){
+  const out = [], from = toMin(st.from), to = toMin(st.to);
+  for (let d = st.start; d <= st.end; d = addDays(d,1)) {
+    if (!st.days.includes(dow(d))) continue;
+    for (let m = from; m + st.dur <= to; m += (st.step || st.dur)) out.push({ key:`${d}T${hm(m)}`, date:d, s:m, e:m+st.dur });
+  }
+  return out;
+}
+const slotFromKey = (st, key) => { const [date,t] = key.split('T'); const s = toMin(t); return { key, date, s, e:s+st.dur }; };
+const isPast = sl => sl.date < TODAY || (sl.date === TODAY && sl.s <= NOWMIN);
+const overlaps = (a, b) => a.date === b.date && a.s < b.e && b.s < a.e;
+const slotText = sl => `${fmtDate(sl.date)} ${span(tm(sl.s), tm(sl.e))}`;
+/** 確定した実験（募集×日時ごと） */
+function bookings(){
+  if (BK) return BK;
+  const map = new Map();
+  for (const a of S.assign) {
+    const st = study(a.studyId); if (!st) continue;
+    const k = a.studyId + '|' + a.slotKey;
+    if (!map.has(k)) map.set(k, { study:st, ...slotFromKey(st, a.slotKey), people:[] });
+    map.get(k).people.push(a.responseId);
+  }
+  BK = [...map.values()].sort((x,y) => x.date.localeCompare(y.date) || x.s - y.s);
+  return BK;
+}
+function roomConflict(st, sl){
+  if (!st.room) return null;
+  return bookings().find(b => b.study.room && b.study.id !== st.id && b.date === sl.date && b.s < sl.e && sl.s < b.e) || null;
+}
+function daysLabel(days){
+  const s = ORDER.filter(n => days.includes(n));
+  if (s.join() === '1,2,3,4,5') return '平日';
+  if (s.length === 7) return '毎日';
+  if (s.join() === '6,0') return '土日';
+  return s.map(n => DOW[n]).join('・');
+}
+const placeName = st => st.room ? '研究室' : (st.place || '未定');
+const placeHTML = st => st.room ? '<span class="room-t">研究室</span>' : esc(st.place || '場所未定');
+const weekIndex = (st, date) => Math.max(0, Math.round((parseYmd(mondayOf(date)) - parseYmd(mondayOf(st.start))) / (7*864e5)));
+const personName = id => (S.responses.find(r => r.id === id) || {}).name;
+
+function initAnswer(st, r = null){
+  const future = slotsOf(st).filter(sl => !isPast(sl));
+  const firstMarked = r && future.find(sl => r.marks[sl.key]);
+  const anchor = firstMarked || future[0];
+  ui.answer = { studyId:st.id, name:r ? r.name : '', comment:r ? r.comment : '', marks:r ? { ...r.marks } : {}, editingId:r ? r.id : null, sent:false, week: anchor ? weekIndex(st, anchor.date) : 0 };
+}
+function openStudy(id, tab){
+  const st = study(id);
+  if (!st) { ui.view = 'list'; return; }
+  ui.view = 'study'; ui.studyId = id; ui.delArm = null; ui.delRespArm = null;
+  ui.tab = tab || 'answer';
+  if (!ui.answer || ui.answer.studyId !== id) initAnswer(st);
+}
+
+/* ---------- server ---------- */
+/*
+ * 押したらまず画面を変え（apply）、裏で順番に保存する。
+ * 失敗したら保存前の状態に戻し、サーバーの最新の状態を読み直す。
+ */
+const queue = [];
+let running = false, creating = false;
+const cleanErr = e => String((e && e.message) || e || '').replace(/^(Exception|Error):\s*/, '') || '保存できませんでした';
+const clone = o => JSON.parse(JSON.stringify(o));
+function applyState(st){ S = st; BK = null; }
+function call(fn, arg, { apply, done } = {}){
+  const job = { fn, arg, done, snapshot: clone(S), undo: null };
+  if (apply) { job.undo = apply() || null; BK = null; render(); }
+  queue.push(job);
+  toast('保存中…', 0);
+  if (!running) next();
+}
+function next(){
+  const job = queue.shift();
+  if (!job) { running = false; return; }
+  running = true;
+  api(job.fn, job.arg)
+    .then(st => {
+      const last = !queue.length;
+      let msg = '';
+      try {
+        if (last) applyState(st);
+        msg = job.done ? job.done(st.info || {}, st) : '';
+        if (last) render();
+      } catch (e) {
+        console.error(e);
+      }
+      if (last && !job.refresh) toast(msg || '保存しました');
+      next();
+    }, err => {
+      try { if (job.undo) job.undo(); } catch (e) { console.error(e); }
+      if (!job.refresh) {
+        if (!queue.length) { applyState(job.snapshot); render(); }
+        queue.unshift({ fn:'apiState', arg:null, refresh:true });
+        toast(cleanErr(err) + '。元に戻しました', 4500);
+      }
+      next();
+    });
+}
+
+/* ---------- render ---------- */
+const app = document.getElementById('app');
+function render(){
+  const keep = {};
+  app.querySelectorAll('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollLeft; });
+  app.innerHTML = shell();
+  app.querySelectorAll('[data-keep]').forEach(el => { if (keep[el.dataset.keep] != null) el.scrollLeft = keep[el.dataset.keep]; });
+}
+
+function shell(){
+  const v = ui.view;
+  const cur = x => (v === x || (x === 'list' && v === 'study')) ? ' aria-current="page"' : '';
+  const body = v === 'list' ? viewList() : (v === 'new' || v === 'edit') ? viewNew() : v === 'cal' ? viewCal() : v === 'help' ? viewHelp() : viewStudy();
+  return `<header class="top"><div class="top-in">
+      <button class="brand" data-act="go" data-view="list">実験日程調整</button>
+      <nav class="nav" aria-label="メイン">
+        <button data-act="go" data-view="list"${cur('list')}>募集</button>
+        <button data-act="go" data-view="cal"${cur('cal')}>カレンダー</button>
+        <button data-act="go" data-view="help"${cur('help')}>使い方</button>
+      </nav>
+      <button class="btn primary sm" data-act="go" data-view="new">募集をつくる</button>
+    </div></header>
+    <main class="wrap">${body}</main>`;
+}
+
+function people(st){
+  const n = respOf(st.id).length, done = new Set(asgOf(st.id).map(a => a.responseId)).size;
+  const total = Math.min(Math.max(st.target, n), 40);
+  let sq = '';
+  for (let i = 0; i < total; i++) sq += `<i class="${i < done ? 'c' : i < n ? 'a' : ''}"></i>`;
+  return `<span class="stat" title="確定 ${done}人・回答 ${n}人・必要 ${st.target}人"><span class="ppl">${sq}</span>${done}/${st.target}人</span>`;
+}
+
+function viewList(){
+  const list = [...S.studies].sort((a,b) => (a.end < TODAY) - (b.end < TODAY) || a.start.localeCompare(b.start));
+  const rows = list.map(st => {
+    const ended = st.end < TODAY;
+    return `<li class="row${ended ? ' ended' : ''}">
+      <div>
+        <button class="title" data-act="open" data-id="${st.id}">${esc(st.title)}${ended ? '（終了）' : ''}</button>
+        <div class="meta"><span>${span(fmtDate(st.start), fmtDate(st.end))}</span><span>${daysLabel(st.days)} ${span(tm(toMin(st.from)), tm(toMin(st.to)))}</span><span>${st.dur}分</span></div>
+        <div class="meta">${people(st)}<span>${placeHTML(st)}</span><span>${esc(st.owner)}</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn sm join" data-act="open" data-id="${st.id}" data-tab="answer">参加する</button>
+        <button class="btn sm" data-act="open" data-id="${st.id}" data-tab="admin">集計・確定</button>
+      </div>
+    </li>`;
+  }).join('');
+  return `<div class="head"><h1>募集中の実験</h1>
+      <div class="keys"><span><i class="kc"></i>確定</span><span><i class="ka"></i>回答のみ</span></div></div>
+    <ul class="list">${rows || '<li class="empty">募集はまだありません。</li>'}</ul>`;
+}
+
+/* ---------- new study ---------- */
+const timeOpts = sel => { let o = ''; for (let m = 8*60; m <= 21*60; m += 10) { const t = hm(m); o += `<option value="${t}"${t === sel ? ' selected' : ''}>${tm(m)}</option>`; } return o; };
+function validate(d){
+  const e = [];
+  if (!d.start || !d.end) e.push('開始日と終了日を入れてください');
+  else if (d.start > d.end) e.push('終了日は開始日以降にしてください');
+  else if ((parseYmd(d.end) - parseYmd(d.start)) / 864e5 > 90) e.push('期間は90日以内にしてください');
+  if (!d.days.length) e.push('曜日を選んでください');
+  if (toMin(d.to) - toMin(d.from) < d.dur) e.push('時間帯が所要時間より短いです');
+  if (!(d.target >= 1)) e.push('必要人数を1人以上にしてください');
+  return e;
+}
+const fromStudy = st => ({ title:st.title, owner:st.owner, desc:st.desc, start:st.start, end:st.end, days:[...st.days], from:st.from, to:st.to, dur:st.dur, step:st.step || 0, per:st.per, target:st.target, room:st.room, place:st.place, equip:st.equip });
+/** 編集で消える○△と確定の数 */
+function editLoss(){
+  const st = study(ui.editId);
+  const keys = new Set(slotsOf({ ...ui.draft, id:st.id }).map(sl => sl.key));
+  let marks = 0, conf = 0;
+  respOf(st.id).forEach(r => Object.keys(r.marks).forEach(k => { if (!keys.has(k)) marks++; }));
+  asgOf(st.id).forEach(a => { if (!keys.has(a.slotKey)) conf++; });
+  return { marks, conf, keys };
+}
+function previewHTML(){
+  const d = ui.draft, errs = validate(d);
+  if (errs.length) return errs.map(x => `<p class="err">${esc(x)}</p>`).join('');
+  const editing = ui.view === 'edit';
+  const st = { ...d, id: editing ? ui.editId : '__draft' };
+  const slots = slotsOf(st);
+  const dates = new Set(slots.map(s => s.date));
+  const conflicts = st.room ? slots.map(sl => [sl, roomConflict(st, sl)]).filter(x => x[1]) : [];
+  let out = `<p>候補 ${slots.length}枠（${dates.size}日）</p>`;
+  if (conflicts.length) out += `<p class="small muted" style="margin-top:6px">研究室が埋まっている枠（選べません）</p>
+    <ul class="pv-list">${conflicts.map(([sl,b]) => `<li><span>${fmtDate(sl.date)} ${tm(sl.s)}</span><span>${esc(b.study.title)}</span></li>`).join('')}</ul>`;
+  if (editing) {
+    const loss = editLoss();
+    if (loss.marks || loss.conf) out += `<p class="err" style="margin-top:10px">この変更で、なくなる枠の○△ ${loss.marks}件と確定 ${loss.conf}件が消えます。</p>`;
+  }
+  return out;
+}
+function viewNew(){
+  const d = ui.draft, editing = ui.view === 'edit';
+  if (editing && !study(ui.editId)) { ui.view = 'list'; return viewList(); }
+  const submit = editing
+    ? `<button class="btn primary" data-act="saveedit">${ui.saveArm ? 'もう一度押すと保存します' : '保存する'}</button><button class="btn" data-act="canceledit">やめる</button>`
+    : `<button class="btn primary" data-act="create"${creating ? ' disabled' : ''}>${creating ? '公開中…' : '公開する'}</button>`;
+  return (editing ? '<button class="back" data-act="canceledit">← 募集に戻る</button>' : '<button class="back" data-act="go" data-view="list">← 一覧に戻る</button>') + `
+  <div class="head"><h1>${editing ? '募集を編集' : '募集をつくる'}</h1></div>
+  <div class="newgrid">
+    <div class="form">
+      <fieldset><legend>実験</legend>
+        <label class="f">タイトル<input class="inp" id="f-title" data-bind="draft" data-f="title" value="${esc(d.title)}"></label>
+        <div class="row2">
+          <label class="f">担当者<input class="inp" id="f-owner" data-bind="draft" data-f="owner" value="${esc(d.owner)}"></label>
+          <label class="f">必要人数<input class="inp" id="f-target" type="number" min="1" max="300" data-bind="draft" data-f="target" data-num="1" value="${d.target}"></label>
+        </div>
+        <label class="f">説明<textarea class="inp" id="f-desc" rows="3" data-bind="draft" data-f="desc">${esc(d.desc)}</textarea></label>
+      </fieldset>
+      <fieldset><legend>日程</legend>
+        <div class="row2">
+          <label class="f">開始日<input class="inp" id="f-start" type="date" data-bind="draft" data-f="start" value="${d.start}"></label>
+          <label class="f">終了日<input class="inp" id="f-end" type="date" data-bind="draft" data-f="end" value="${d.end}"></label>
+        </div>
+        <div class="f"><span>曜日</span><div class="days">${ORDER.map(n => `<label><input type="checkbox" id="f-day-${n}" data-bind="day" value="${n}"${d.days.includes(n) ? ' checked' : ''}><span>${DOW[n]}</span></label>`).join('')}</div></div>
+        <div class="row2">
+          <label class="f">開始時刻<select class="inp" id="f-from" data-bind="draft" data-f="from">${timeOpts(d.from)}</select></label>
+          <label class="f">終了時刻<select class="inp" id="f-to" data-bind="draft" data-f="to">${timeOpts(d.to)}</select></label>
+          <label class="f">1回の所要時間<select class="inp" id="f-dur" data-bind="draft" data-f="dur" data-num="1">${DURS.map(m => `<option value="${m}"${m === d.dur ? ' selected' : ''}>${m}分</option>`).join('')}</select></label>
+          <label class="f">開始の間隔<select class="inp" id="f-step" data-bind="draft" data-f="step" data-num="1">${[[0,'所要時間ごと'],[10,'10分'],[15,'15分'],[30,'30分'],[60,'60分']].map(([v, l]) => `<option value="${v}"${v === (d.step || 0) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="f">1枠の人数<select class="inp" id="f-per" data-bind="draft" data-f="per" data-num="1">${[1,2,3,4,5,6].map(n => `<option value="${n}"${n === d.per ? ' selected' : ''}>${n}人</option>`).join('')}</select></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>場所と機器</legend>
+        <label class="roomck"><input type="checkbox" id="f-room" data-bind="room"${d.room ? ' checked' : ''}><span>研究室を使う<small>確定した時間は、研究室を使うほかの募集では選べなくなります。</small></span></label>
+        <label class="f" id="placewrap"${d.room ? ' hidden' : ''}>場所<input class="inp" id="f-place" data-bind="draft" data-f="place" value="${esc(d.place)}"></label>
+        <label class="f">使用する機器<input class="inp" id="f-equip" data-bind="draft" data-f="equip" value="${esc(d.equip)}"></label>
+      </fieldset>
+      <div class="formacts">${submit}</div>
+    </div>
+    <aside class="form preview"><h2>候補枠</h2><div id="pv">${previewHTML()}</div></aside>
+  </div>`;
+}
+
+/* ---------- study page ---------- */
+function viewStudy(){
+  const st = study(ui.studyId);
+  if (!st) { ui.view = 'list'; return viewList(); }
+  const armed = ui.delArm === st.id;
+  return `<button class="back" data-act="go" data-view="list">← 一覧に戻る</button>
+  <section class="sh">
+    <h1>${esc(st.title)}${st.end < TODAY ? '（終了）' : ''}</h1>
+    <dl class="facts">
+      <dt>担当</dt><dd>${esc(st.owner)}</dd>
+      <dt>場所</dt><dd>${placeHTML(st)}</dd>
+      <dt>期間</dt><dd>${span(fmtDate(st.start), fmtDate(st.end))}</dd>
+      <dt>時間帯</dt><dd>${daysLabel(st.days)} ${span(tm(toMin(st.from)), tm(toMin(st.to)))}</dd>
+      <dt>1回</dt><dd>${st.dur}分${st.step && st.step !== st.dur ? `・${st.step}分おきに開始` : ''}${st.per > 1 ? `（${st.per}人ずつ）` : ''}</dd>
+      <dt>必要人数</dt><dd>${st.target}人</dd>
+      ${st.equip ? `<dt>機器</dt><dd>${esc(st.equip)}</dd>` : ''}
+    </dl>
+    ${st.desc ? `<p class="desc">${esc(st.desc)}</p>` : ''}
+  </section>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="${ui.tab === 'answer'}" data-act="tab" data-tab="answer">参加する</button>
+    <button role="tab" aria-selected="${ui.tab === 'admin'}" data-act="tab" data-tab="admin">集計・確定</button>
+  </div>
+  ${ui.tab === 'answer' ? viewAnswer(st) : `<div class="share"><span class="muted">リンク</span><code id="sharelink">${esc(appUrl())}?s=${st.id}</code><button class="btn sm" data-act="copy">コピー</button>
+    <span class="del"><button class="btn sm" data-act="edit">募集を編集</button><button class="link danger" data-act="delstudy">${armed ? 'もう一度押すと削除します' : 'この募集を削除'}</button></span></div>` + viewAdmin(st)}`;
+}
+
+function slotState(st, sl){
+  if (isPast(sl)) return 'past';
+  if (roomConflict(st, sl)) return 'busy';
+  return ui.answer.marks[sl.key] || '';
+}
+const markText = s => s === 'o' ? '○' : s === 't' ? '△' : '';
+
+function viewAnswer(st){
+  const a = ui.answer, others = respOf(st.id);
+  const mine = a.editingId && S.assign.find(x => x.responseId === a.editingId);
+  const vals = Object.values(a.marks);
+  const nO = vals.filter(v => v === 'o').length, nT = vals.filter(v => v === 't').length;
+  let msg = '';
+  if (mine) msg = `<p class="msg">確定：${slotText(slotFromKey(st, mine.slotKey))}（${esc(placeName(st))}）</p>`;
+  else if (a.sent) msg = '<p class="msg">回答しました</p>';
+  const armed = a.editingId && ui.delRespArm === a.editingId;
+  return `<div class="ans">
+    ${msg}
+    <div class="ans-top">
+      <label class="f">名前<input class="inp" id="a-name" data-bind="ans" data-f="name" value="${esc(a.name)}" autocomplete="name"></label>
+      ${others.length ? `<label class="f">回答を直す<select id="a-pick" class="inp" data-bind="ans-pick"><option value="">新しく回答する</option>${others.map(r => `<option value="${r.id}"${r.id === a.editingId ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select></label>` : ''}
+    </div>
+    <div class="bar2">
+      <div class="legend"><span><b class="o">○</b> 参加できる</span><span><b class="t">△</b> たぶん</span><span>空欄 参加できない</span>${st.room ? '<span><b class="x">使用中</b> 研究室が埋まっている</span>' : ''}${st.step && st.step < st.dur ? `<span>時刻は開始時刻（1回${st.dur}分）</span>` : ''}</div>
+    </div>
+    ${ansCalendar(st)}
+    <label class="f">コメント<textarea class="inp" id="a-comment" rows="2" data-bind="ans" data-f="comment">${esc(a.comment)}</textarea></label>
+    <div class="submit"><span class="muted">○ ${nO}　△ ${nT}</span><div class="r">${a.editingId ? `<button class="link danger" data-act="delresp">${armed ? 'もう一度押すと削除します' : 'この回答を削除'}</button>` : ''}<button class="btn primary" data-act="submit">${a.editingId ? '更新する' : '回答する'}</button></div></div>
+  </div>`;
+}
+
+function ansCalendar(st){
+  const weeks = [];
+  for (let w = mondayOf(st.start); w <= st.end; w = addDays(w, 7)) weeks.push(w);
+  const wi = Math.min(Math.max(ui.answer.week, 0), weeks.length - 1);
+  ui.answer.week = wi;
+  const wk = weeks[wi];
+  const cols = ORDER.filter(n => st.days.includes(n)).map(n => addDays(wk, (n + 6) % 7));
+  const inPeriod = d => d >= st.start && d <= st.end;
+  const times = [];
+  for (let m = toMin(st.from); m + st.dur <= toMin(st.to); m += (st.step || st.dur)) times.push(m);
+  const head = cols.map(d => {
+    const w = dow(d), cls = w === 6 ? ' sat' : w === 0 ? ' sun' : '';
+    const inner = `${md(d)}<span class="w">${DOW[w]}</span>`;
+    return inPeriod(d)
+      ? `<th><button class="dh${cls}" data-act="markday" data-date="${d}" title="この日をまとめて○にする">${inner}</button></th>`
+      : `<th><div class="dh out${cls}">${inner}</div></th>`;
+  }).join('');
+  const body = times.map(m => `<tr><th class="tm" scope="row">${tm(m)}</th>${cols.map(d => {
+    if (!inPeriod(d)) return '<td><span class="cell off"></span></td>';
+    const sl = { key:`${d}T${hm(m)}`, date:d, s:m, e:m + st.dur };
+    const s = slotState(st, sl), label = `${fmtDate(d)} ${tm(m)}`;
+    if (s === 'past') return '<td><span class="cell off"></span></td>';
+    if (s === 'busy') return `<td><button class="cell busy" disabled aria-label="${label} 研究室が使用中">使用中</button></td>`;
+    return `<td><button class="cell ${s}" data-act="mark" data-key="${sl.key}" aria-label="${label} ${s === 'o' ? '参加できる' : s === 't' ? 'たぶん' : '未回答'}">${markText(s)}</button></td>`;
+  }).join('')}</tr>`).join('');
+  return `<div>
+    <div class="weeknav">
+      <button class="btn sm" data-act="aweek" data-d="-1"${wi === 0 ? ' disabled' : ''} aria-label="前の週">‹</button>
+      <span class="wl">${span(md(wk), md(addDays(wk, 6)))}</span>
+      <button class="btn sm" data-act="aweek" data-d="1"${wi === weeks.length - 1 ? ' disabled' : ''} aria-label="次の週">›</button>
+    </div>
+    <div class="scroll" data-keep="pick"><table class="pick${times.length > 16 ? ' dense' : ''}"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div>
+  </div>`;
+}
+
+function viewAdmin(st){
+  const rs = respOf(st.id), as = asgOf(st.id);
+  if (!rs.length) return '<p class="muted">まだ回答がありません。</p>';
+  const asBy = new Map(as.map(a => [a.responseId, a.slotKey]));
+  const cnt = key => as.filter(a => a.slotKey === key).length;
+  const done = asBy.size;
+  const slots = slotsOf(st);
+  const shown = ui.aggAll ? slots : slots.filter(sl => rs.some(r => r.marks[sl.key]) || cnt(sl.key));
+  const short = k => { const sl = slotFromKey(st, k); return `${md(sl.date)} ${tm(sl.s)}`; };
+  const head = rs.map(r => { const k = asBy.get(r.id); return `<th><span class="pname">${esc(r.name)}</span><span class="pst${k ? ' ok' : ''}">${k ? '確定 ' + short(k) : '未確定'}</span></th>`; }).join('');
+  const body = shown.map(sl => {
+    const past = isPast(sl), b = roomConflict(st, sl), n = cnt(sl.key), full = n >= st.per;
+    const o = rs.filter(r => r.marks[sl.key] === 'o').length, t = rs.filter(r => r.marks[sl.key] === 't').length;
+    const cells = rs.map(r => {
+      const mk = r.marks[sl.key], mineKey = asBy.get(r.id);
+      if (mineKey === sl.key) return `<td><button class="ac done" data-act="unassign" data-rid="${r.id}" title="押すと取り消し">確定</button></td>`;
+      if (!mk) return '<td></td>';
+      const clash = as.some(a => a.responseId !== r.id && a.slotKey !== sl.key && overlaps(slotFromKey(st, a.slotKey), sl));
+      const dis = past || b || full || clash;
+      const why = past ? '終了した枠' : b ? '研究室が使用中' : full ? '定員に達しています' : clash ? '同じ実験のほかの確定と重なる' : mineKey ? 'この枠に変更' : 'この枠で確定';
+      return `<td><button class="ac ${mk}" data-act="assign" data-rid="${r.id}" data-key="${sl.key}" title="${why}" aria-label="${esc(r.name)} ${why}"${dis ? ' disabled' : ''}>${markText(mk)}</button></td>`;
+    }).join('');
+    return `<tr class="${b ? 'busy' : ''}${past ? ' past' : ''}"><th class="slot" scope="row">${slotText(sl)}${b ? `<span class="busyl">研究室使用中（${esc(b.study.title)}）</span>` : ''}${st.per > 1 ? `<span class="cap">${n}/${st.per}人</span>` : ''}</th><td class="cnt${o ? ' hi' : ''}">${o || ''}</td><td class="cnt">${t || ''}</td>${cells}</tr>`;
+  }).join('');
+  const groups = [...new Set(as.map(a => a.slotKey))].sort().map(k => ({ sl:slotFromKey(st, k), people:as.filter(a => a.slotKey === k).map(a => personName(a.responseId)).filter(Boolean) }));
+  const comments = rs.filter(r => r.comment);
+  return `<p class="sum">回答 <b>${rs.length}</b>人<span class="sep">/</span>確定 <b>${done}</b>人（必要 ${st.target}人）</p>
+    <div class="tbar">
+      <label class="chk"><input type="checkbox" id="agg-filter" data-bind="agg-filter"${ui.aggAll ? '' : ' checked'}>○△がある枠だけ</label>
+      <span>○△を押すと確定、「確定」を押すと取り消し</span>
+    </div>
+    <div class="agg-wrap" data-keep="agg-${st.id}">
+      <table class="agg">
+        <thead><tr><th class="slot">日時</th><th>○</th><th>△</th>${head}</tr></thead>
+        <tbody>${body || `<tr><td colspan="${rs.length + 3}" class="muted" style="padding:16px">表示する枠がありません</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="below">
+      <section><h2>確定した日時</h2>
+        ${groups.length ? `<ul class="plain">${groups.map(g => `<li><span class="when">${slotText(g.sl)}</span>${g.people.map(esc).join('、')}</li>`).join('')}</ul>` : '<p class="muted small" style="padding-top:6px">まだありません</p>'}
+      </section>
+      <section><h2>コメント</h2>
+        ${comments.length ? `<ul class="plain">${comments.map(r => `<li><b>${esc(r.name)}</b>　${esc(r.comment)}</li>`).join('')}</ul>` : '<p class="muted small" style="padding-top:6px">ありません</p>'}
+      </section>
+    </div>`;
+}
+
+/* ---------- calendar ---------- */
+/** 同じ時間に重なる予定を横に並べる */
+function layoutDay(evs){
+  const out = [];
+  let cluster = [], clusterEnd = -1;
+  const flush = () => {
+    const lanes = [];
+    cluster.forEach(ev => { let i = lanes.findIndex(end => end <= ev.s); if (i < 0) { i = lanes.length; lanes.push(0); } lanes[i] = ev.e; ev.lane = i; });
+    cluster.forEach(ev => { ev.lanes = lanes.length; out.push(ev); });
+    cluster = []; clusterEnd = -1;
+  };
+  evs.forEach(ev => { if (cluster.length && ev.s >= clusterEnd) flush(); cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e); });
+  if (cluster.length) flush();
+  return out;
+}
+function viewCal(){
+  const all = bookings();
+  const days = [...Array(7)].map((_, i) => addDays(ui.calWeek, i));
+  const inWeek = all.filter(b => b.date >= days[0] && b.date <= days[6]);
+  const H0 = 8, H1 = 21, PX = 44;
+  const head = days.map(d => { const w = dow(d); return `<div class="wd${d === TODAY ? ' today' : ''}${w === 6 ? ' sat' : w === 0 ? ' sun' : ''}">${md(d)}<span class="w">${DOW[w]}</span></div>`; }).join('');
+  const gut = [...Array(H1 - H0)].map((_, i) => `<span style="top:${i * PX}px">${H0 + i}:00</span>`).join('');
+  const cols = days.map(d => {
+    const w = dow(d);
+    const evs = layoutDay(inWeek.filter(b => b.date === d).map(b => ({ ...b }))).map(b => {
+      const s = Math.max(b.s, H0 * 60), e = Math.min(b.e, H1 * 60);
+      const top = (s - H0 * 60) / 60 * PX, h = (e - s) / 60 * PX;
+      const tip = `${b.study.title} ${span(tm(b.s), tm(b.e))} ${placeName(b.study)}`;
+      const label = b.lanes >= 3 ? '' : b.study.room ? '研究室' : (b.lanes === 2 ? '他室' : '他の部屋');
+      return `<button class="ev ${b.study.room ? 'room' : 'other'}" data-act="open" data-id="${b.study.id}" style="top:${top + 1}px;height:${Math.max(h - 2, 8)}px;left:calc(${b.lane / b.lanes * 100}% + 2px);width:calc(${100 / b.lanes}% - 4px)" title="${esc(tip)}" aria-label="${esc(tip)}">${label}</button>`;
+    }).join('');
+    const now = d === TODAY && NOWMIN >= H0 * 60 && NOWMIN <= H1 * 60 ? `<div class="now" style="top:${(NOWMIN - H0 * 60) / 60 * PX}px"></div>` : '';
+    return `<div class="col${w === 0 || w === 6 ? ' we' : ''}">${evs}${now}</div>`;
+  }).join('');
+  const content = `<div class="wk-wrap" data-keep="cal"><div class="wk" style="--hpx:${PX}px">
+    <div class="wk-head"><div></div>${head}</div>
+    <div class="wk-body" style="height:${(H1 - H0) * PX}px"><div class="gut">${gut}</div>${cols}</div>
+  </div></div>`;
+  return `<div class="head"><h1>カレンダー</h1></div>
+  <div class="calbar">
+    <div class="weeknav">
+      <button class="btn sm" data-act="cweek" data-d="-7" aria-label="前の週">‹</button>
+      <span class="wl">${span(md(days[0]), md(days[6]))}</span>
+      <button class="btn sm" data-act="cweek" data-d="7" aria-label="次の週">›</button>
+      <button class="btn sm" data-act="ctoday">今週</button>
+    </div>
+  </div>
+  ${content}
+  <div class="legend2"><span><i class="evsw room"></i>研究室</span><span><i class="evsw"></i>他の部屋</span></div>`;
+}
+
+/* ---------- help ---------- */
+function viewHelp(){
+  const cell = (c, x) => `<span class="cell ${c}">${x}</span>`;
+  const join = `<ol class="steps">
+      <li><b>実験を選ぶ</b><p>「募集」の一覧で、参加したい実験の「参加する」を押します。Slackでリンクを受け取った人は、そのリンクを開くだけで大丈夫です。</p></li>
+      <li><b>名前を入れる</b><p>名前はほかの人にも見えます。研究室の人が見て分かる名前にしてください。</p></li>
+      <li><b>参加できる時間を押す</b><p>押すたびに ○ → △ → 空欄 と切り替わります。日付を押すと、その日をまとめて ○ にできます。</p>
+        <div class="demo">${cell('o', '○')}<span>参加できる</span><span class="gap"></span>${cell('t', '△')}<span>たぶん参加できる</span><span class="gap"></span>${cell('', '')}<span>参加できない</span><span class="gap"></span>${cell('busy', '使用中')}<span>研究室が埋まっていて選べない</span></div></li>
+      <li><b>「回答する」を押す</b><p>ボタンは画面のいちばん下にあります。</p></li>
+      <li><b>日時が決まるのを待つ</b><p>募集した人が日時を決めると、「参加する」の画面の上に「確定：9/29(火) 10:00〜11:00」のように出ます。</p></li>
+    </ol>
+    <h2>回答を直したいとき</h2>
+    <p>「回答を直す」で自分の名前を選び、直してから「更新する」を押します。同じ名前でもう一度送っても上書きされます。取り消すときは「この回答を削除」を2回押します。</p>
+    <h2>気をつけること</h2>
+    <p>リンクを知っている人なら誰でも回答を直せます。ほかの人の回答は触らないでください。</p>`;
+  const host = `<ol class="steps">
+      <li><b>「募集をつくる」を押す</b><p>画面の右上にあります。</p></li>
+      <li><b>実験の内容を入れる</b><p>タイトル、担当者、必要人数、説明を入れます。</p></li>
+      <li><b>日程を決める</b><p>期間、曜日、時間帯、1回の所要時間、開始の間隔を選ぶと、候補の枠が自動でできます。開始の間隔を10分にすると、2時間の実験でも10:00、10:10、10:20…と細かく選べます。右側に枠の数が出ます。</p></li>
+      <li><b>場所を選ぶ</b><p>研究室で行うなら「研究室を使う」にチェックします。研究室を使うほかの実験で確定している時間は、参加者が選べなくなります。ほかの部屋で行うなら、場所を書きます。</p></li>
+      <li><b>公開して、リンクを送る</b><p>「公開する」を押したら「集計・確定」を開き、リンクをコピーしてSlackに送ります。</p></li>
+      <li><b>日時を確定する</b><p>「集計・確定」の表で、参加者の ○ か △ を押すと、その人をその日時で確定します。「確定」をもう一度押すと取り消せます。</p>
+        <div class="demo"><span class="ac o">○</span><span>押すと</span><span class="ac done">確定</span></div></li>
+    </ol>
+    <h2>内容を変えたいとき</h2>
+    <p>「集計・確定」の「募集を編集」から変えられます。日程を変えると、なくなった枠の ○△ と確定は消えます。消える件数は保存する前に表示されます。</p>
+    <h2>募集を終えたら</h2>
+    <p>「集計・確定」の「この募集を削除」を2回押します。回答と確定も一緒に消えます。</p>
+    <h2>カレンダーの見かた</h2>
+    <p>確定した実験が入ります。押すと、その募集を開きます。</p>
+    <div class="demo"><i class="evsw room"></i><span>研究室の実験</span><span class="gap"></span><i class="evsw"></i><span>他の部屋の実験</span></div>
+    <h2>気をつけること</h2>
+    <p>リンクを知っている人なら誰でも編集できます。ほかの人の募集の確定や削除はしないでください。</p>`;
+  return `<div class="help">
+    <div class="head"><h1>使い方</h1></div>
+    <div class="tabs" role="tablist" style="margin-top:0">
+      <button role="tab" aria-selected="${ui.helpTab === 'join'}" data-act="helptab" data-tab="join">参加する人</button>
+      <button role="tab" aria-selected="${ui.helpTab === 'host'}" data-act="helptab" data-tab="host">募集する人</button>
+    </div>
+    ${ui.helpTab === 'join' ? join : host}
+  </div>`;
+}
+
+/* ---------- actions ---------- */
+let toastTimer;
+function toast(msg, ms = 2400){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer);
+  if (ms) toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+const top0 = () => window.scrollTo(0, 0);
+function arm(key, id){
+  ui[key] = id; render();
+  setTimeout(() => { if (ui[key] === id) { ui[key] = null; render(); } }, 4000);
+}
+
+const actions = {
+  go(t){ ui.view = t.dataset.view; if (ui.view === 'new' && ui.editId) { ui.editId = null; ui.draft = defaultDraft(); } render(); top0(); },
+  open(t){ openStudy(t.dataset.id, t.dataset.tab); render(); top0(); },
+  tab(t){ ui.tab = t.dataset.tab; render(); },
+  helptab(t){ ui.helpTab = t.dataset.tab; render(); },
+  aweek(t){ ui.answer.week += Number(t.dataset.d); render(); },
+  cweek(t){ ui.calWeek = addDays(ui.calWeek, Number(t.dataset.d)); render(); },
+  ctoday(){ ui.calWeek = mondayOf(TODAY); render(); },
+  mark(t){
+    const m = ui.answer.marks, k = t.dataset.key;
+    if (!m[k]) m[k] = 'o'; else if (m[k] === 'o') m[k] = 't'; else delete m[k];
+    ui.answer.sent = false; render();
+  },
+  markday(t){
+    const st = study(ui.studyId), m = ui.answer.marks;
+    const arr = slotsOf(st).filter(sl => sl.date === t.dataset.date && !isPast(sl) && !roomConflict(st, sl));
+    const allOn = arr.length && arr.every(sl => m[sl.key] === 'o');
+    arr.forEach(sl => { if (allOn) delete m[sl.key]; else m[sl.key] = 'o'; });
+    ui.answer.sent = false; render();
+  },
+  submit(){
+    const a = ui.answer;
+    if (!a.name.trim()) { toast('名前を入れてください'); const n = document.getElementById('a-name'); if (n) n.focus(); return; }
+    if (!Object.keys(a.marks).length) { toast('○か△をつけてください'); return; }
+    const prev = { editingId:a.editingId, sent:a.sent };
+    call('apiSaveResponse', { studyId:a.studyId, responseId:a.editingId, name:a.name, comment:a.comment, marks:a.marks }, {
+      apply(){
+        const name = a.name.trim(), data = { name, comment:a.comment.trim(), marks:{ ...a.marks } };
+        let r = (a.editingId && S.responses.find(x => x.id === a.editingId)) || S.responses.find(x => x.studyId === a.studyId && x.name === name);
+        if (r) Object.assign(r, data); else { r = { id:'tmp' + Date.now(), studyId:a.studyId, email:'', ...data }; S.responses.push(r); }
+        S.assign = S.assign.filter(x => !(x.responseId === r.id && !r.marks[x.slotKey]));
+        a.editingId = r.id; a.sent = true;
+        return () => { a.editingId = prev.editingId; a.sent = prev.sent; };
+      },
+      done(info){ if (info.responseId && ui.answer === a) a.editingId = info.responseId; return '回答しました'; },
+    });
+  },
+  assign(t){
+    const sid = ui.studyId, rid = t.dataset.rid, key = t.dataset.key;
+    call('apiAssign', { studyId:sid, responseId:rid, slotKey:key }, {
+      apply(){
+        const ex = S.assign.find(x => x.studyId === sid && x.responseId === rid);
+        if (ex) ex.slotKey = key; else S.assign.push({ studyId:sid, responseId:rid, slotKey:key, email:'', name:personName(rid) || '', by:'', at:'' });
+      },
+      done: () => '確定しました',
+    });
+  },
+  unassign(t){
+    const sid = ui.studyId, rid = t.dataset.rid;
+    call('apiUnassign', { studyId:sid, responseId:rid }, {
+      apply(){ S.assign = S.assign.filter(x => !(x.studyId === sid && x.responseId === rid)); },
+      done: () => '取り消しました',
+    });
+  },
+  create(){
+    if (creating) return;
+    const d = ui.draft, errs = validate(d);
+    if (!d.title.trim()) errs.unshift('タイトルを入れてください');
+    if (errs.length) { toast(errs[0]); return; }
+    call('apiCreateStudy', { ...d, days:[...d.days] }, {
+      apply(){ creating = true; return () => { creating = false; }; },
+      done(info, st){
+        creating = false;
+        ui.draft = defaultDraft();
+        const created = info.studyId && st.studies.find(s => s.id === info.studyId);
+        if (created && !study(created.id)) S.studies.push(created);
+        if (created) { ui.answer = null; openStudy(created.id, 'answer'); }
+        top0();
+        return '公開しました';
+      },
+    });
+  },
+  delstudy(){
+    const id = ui.studyId;
+    if (ui.delArm !== id) return arm('delArm', id);
+    ui.delArm = null;
+    call('apiDeleteStudy', id, {
+      apply(){
+        S.studies = S.studies.filter(s => s.id !== id);
+        S.responses = S.responses.filter(r => r.studyId !== id);
+        S.assign = S.assign.filter(x => x.studyId !== id);
+        ui.view = 'list'; ui.answer = null; top0();
+        return () => { ui.view = 'study'; ui.studyId = id; };
+      },
+      done: () => '削除しました',
+    });
+  },
+  delresp(){
+    const a = ui.answer, id = a.editingId;
+    if (!id) return;
+    if (ui.delRespArm !== id) return arm('delRespArm', id);
+    ui.delRespArm = null;
+    const prev = clone(a);
+    call('apiDeleteResponse', id, {
+      apply(){
+        S.responses = S.responses.filter(r => r.id !== id);
+        S.assign = S.assign.filter(x => x.responseId !== id);
+        initAnswer(study(a.studyId), null);
+        return () => { ui.answer = prev; };
+      },
+      done: () => '削除しました',
+    });
+  },
+  edit(){
+    const st = study(ui.studyId);
+    ui.editId = st.id; ui.draft = fromStudy(st); ui.saveArm = false; ui.view = 'edit';
+    render(); top0();
+  },
+  canceledit(){ ui.view = 'study'; ui.saveArm = false; ui.draft = defaultDraft(); render(); top0(); },
+  saveedit(){
+    const d = ui.draft, errs = validate(d), id = ui.editId;
+    if (!d.title.trim()) errs.unshift('タイトルを入れてください');
+    if (errs.length) { toast(errs[0]); return; }
+    const loss = editLoss();
+    if ((loss.marks || loss.conf) && !ui.saveArm) { ui.saveArm = true; render(); return; }
+    ui.saveArm = false;
+    const payload = { ...d, days:[...d.days], id };
+    const draft = clone(d);
+    call('apiUpdateStudy', payload, {
+      apply(){
+        const st = study(id);
+        Object.assign(st, clone(draft));
+        S.responses.forEach(r => { if (r.studyId === id) Object.keys(r.marks).forEach(k => { if (!loss.keys.has(k)) delete r.marks[k]; }); });
+        S.assign = S.assign.filter(a => a.studyId !== id || loss.keys.has(a.slotKey));
+        ui.view = 'study'; ui.studyId = id; ui.tab = 'admin'; ui.answer = null; initAnswer(st);
+        return () => { ui.view = 'edit'; ui.editId = id; ui.draft = draft; };
+      },
+      done(){ ui.draft = defaultDraft(); return '保存しました'; },
+    });
+    top0();
+  },
+  copy(){
+    const el = document.getElementById('sharelink');
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('選択しました。コピーしてください'); };
+    try { navigator.clipboard.writeText(el.textContent).then(() => toast('コピーしました'), fallback); } catch(e) { fallback(); }
+  },
+};
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t || t.disabled) return;
+  const fn = actions[t.dataset.act];
+  if (fn) { e.preventDefault(); fn(t, e); }
+});
+
+function onField(t){
+  const b = t.dataset.bind;
+  if (b === 'draft' || b === 'day' || b === 'room') disarmSave();
+  if (b === 'draft') { ui.draft[t.dataset.f] = t.dataset.num ? Number(t.value) : t.value; refreshPreview(); }
+  else if (b === 'day') { const s = new Set(ui.draft.days), n = Number(t.value); if (t.checked) s.add(n); else s.delete(n); ui.draft.days = [...s]; refreshPreview(); }
+  else if (b === 'room') { ui.draft.room = t.checked; document.getElementById('placewrap').hidden = t.checked; refreshPreview(); }
+  else if (b === 'ans') { ui.answer[t.dataset.f] = t.value; }
+  else if (b === 'agg-filter') { ui.aggAll = !t.checked; render(); }
+  else if (b === 'ans-pick') { ui.delRespArm = null; initAnswer(study(ui.studyId), t.value ? S.responses.find(r => r.id === t.value) : null); render(); }
+}
+function disarmSave(){
+  if (!ui.saveArm) return;
+  ui.saveArm = false;
+  const b = app.querySelector('[data-act="saveedit"]'); if (b) b.textContent = '保存する';
+}
+const isChoice = t => t.type === 'checkbox' || t.tagName === 'SELECT';
+app.addEventListener('input', e => { if (e.target.dataset.bind && !isChoice(e.target)) onField(e.target); });
+app.addEventListener('change', e => { if (e.target.dataset.bind && isChoice(e.target)) onField(e.target); });
+function refreshPreview(){ const pv = document.getElementById('pv'); if (pv) pv.innerHTML = previewHTML(); }
+
+app.innerHTML = '<p style="padding:32px 20px;color:var(--muted)">読み込み中…</p>';
+api('apiState').then(st => {
+  applyState(st);
+  const id = (PARAMS.get('s') || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (id && study(id)) openStudy(id);
+  render();
+}).catch(() => {
+  app.innerHTML = '<p style="padding:32px 20px">読み込めませんでした。少し待ってから、ページを開き直してください。</p>';
+});
+})();
+</script>
+</body>
+</html>
