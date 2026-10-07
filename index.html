@@ -474,7 +474,13 @@ function viewList(){
 /* ---------- new study ---------- */
 const perMax = d => Math.min(300, Math.max(1, Math.floor(d.target) || 1));
 const perOpts = d => { let o = ''; for (let n = 1; n <= perMax(d); n++) o += `<option value="${n}"${n === d.per ? ' selected' : ''}>${n}人</option>`; return o; };
-const timeOpts = sel => { let o = ''; for (let m = 8*60; m <= 21*60; m += 10) { const t = hm(m); o += `<option value="${t}"${t === sel ? ' selected' : ''}>${tm(m)}</option>`; } return o; };
+/** 時刻の選択肢は1時間ごと（前に保存した半端な時刻は、そのまま選べるように残す） */
+const timeOpts = sel => {
+  const ms = [];
+  for (let m = 8*60; m <= 21*60; m += 60) ms.push(m);
+  if (/^\d{2}:\d{2}$/.test(sel || '') && !ms.includes(toMin(sel))) ms.push(toMin(sel)), ms.sort((a, b) => a - b);
+  return ms.map(m => `<option value="${hm(m)}"${hm(m) === sel ? ' selected' : ''}>${tm(m)}</option>`).join('');
+};
 function validate(d){
   const e = [];
   if (!d.start || !d.end) e.push('開始日と終了日を入れてください');
@@ -838,9 +844,10 @@ const actions = {
   go(t){ ui.view = t.dataset.view; if (ui.view === 'new' && ui.editId) { ui.editId = null; ui.draft = defaultDraft(); ui.perDay = false; } render(); top0(); },
   pdadd(t){
     const d = ui.draft, x = t.dataset.date, rs = dayRanges(d, x).map(r => [...r]);
-    let s = rs.length ? toMin(rs[rs.length - 1][1]) : toMin(d.from);
-    if (s + d.dur > 21*60) s = Math.max(8*60, 21*60 - d.dur);
-    rs.push([hm(s), hm(Math.min(s + d.dur, 21*60))]);
+    const len = Math.ceil(d.dur / 60) * 60;
+    let s = Math.ceil((rs.length ? toMin(rs[rs.length - 1][1]) : toMin(d.from)) / 60) * 60;
+    if (s + len > 21*60) s = Math.max(8*60, 21*60 - len);
+    rs.push([hm(s), hm(Math.min(s + len, 21*60))]);
     setDay(x, rs);
   },
   pddel(t){ const x = t.dataset.date, rs = dayRanges(ui.draft, x).map(r => [...r]); rs.splice(Number(t.dataset.i), 1); setDay(x, rs); },
