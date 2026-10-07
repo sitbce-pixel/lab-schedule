@@ -72,7 +72,7 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.6}
 .list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 20px;align-items:center;padding:14px 18px;border-top:1px solid var(--line-2)}
 .row:first-child{border-top:0}
-.row.ended{opacity:.6}
+.list-h{margin:32px 0 10px}
 .row .title{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-size:16px;font-weight:700;color:var(--ink)}
 .row .title:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
 .row .meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;font-size:13px;color:var(--muted);margin-top:3px}
@@ -451,24 +451,26 @@ function people(st){
 }
 
 function viewList(){
-  const list = [...S.studies].sort((a,b) => (a.end < TODAY) - (b.end < TODAY) || a.start.localeCompare(b.start));
-  const rows = list.map(st => {
+  const row = st => {
     const ended = st.end < TODAY;
-    return `<li class="row${ended ? ' ended' : ''}">
+    return `<li class="row">
       <div>
-        <button class="title" data-act="open" data-id="${st.id}">${esc(st.title)}${ended ? '（終了）' : ''}</button>
+        <button class="title" data-act="open" data-id="${st.id}"${ended ? ' data-tab="admin"' : ''}>${esc(st.title)}</button>
         <div class="meta"><span>${span(fmtDate(st.start), fmtDate(st.end))}</span><span>${schedText(st)}</span><span>${st.dur}分</span></div>
         <div class="meta">${people(st)}<span>${placeHTML(st)}</span><span>${esc(st.owner)}</span></div>
       </div>
       <div class="acts">
-        <button class="btn sm join" data-act="open" data-id="${st.id}" data-tab="answer">参加する</button>
+        ${ended ? '' : `<button class="btn sm join" data-act="open" data-id="${st.id}" data-tab="answer">参加する</button>`}
         <button class="btn sm" data-act="open" data-id="${st.id}" data-tab="admin">集計・確定</button>
       </div>
     </li>`;
-  }).join('');
+  };
+  const open = S.studies.filter(st => st.end >= TODAY).sort((a,b) => a.start.localeCompare(b.start));
+  const ended = S.studies.filter(st => st.end < TODAY).sort((a,b) => b.end.localeCompare(a.end));
   return `<div class="head"><h1>募集中の実験</h1>
       <div class="keys"><span><i class="kc"></i>確定</span><span><i class="ka"></i>回答のみ</span></div></div>
-    <ul class="list">${rows || '<li class="empty">募集はまだありません。</li>'}</ul>`;
+    <ul class="list">${open.map(row).join('') || '<li class="empty">募集中の実験はありません。</li>'}</ul>
+    ${ended.length ? `<h2 class="list-h">募集が終わった実験</h2><ul class="list">${ended.map(row).join('')}</ul>` : ''}`;
 }
 
 /* ---------- new study ---------- */
