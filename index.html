@@ -172,7 +172,7 @@ button.ac.o:hover,button.ac.t:hover{border-color:var(--accent)}
 @media (max-width:860px){.newgrid{grid-template-columns:1fr}}
 .form{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:20px;display:grid;gap:20px}
 @media (max-width:560px){.form{padding:16px}}
-.form fieldset{border:0;padding:0;margin:0;display:grid;gap:12px;min-width:0}
+.form fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
 .form legend{font-weight:700;font-size:14px;padding:0 0 6px;margin-bottom:8px;border-bottom:1px solid var(--line-2);width:100%}
 .row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .days{display:flex;gap:6px;flex-wrap:wrap}
@@ -193,6 +193,19 @@ button.ac.o:hover,button.ac.t:hover{border-color:var(--accent)}
 .err{color:var(--danger);font-size:13px}
 .warn{margin:0;padding:2px 0 2px 10px;border-left:3px solid var(--danger);color:var(--danger);font-size:14px;line-height:1.6}
 .formacts{display:flex;gap:10px;flex-wrap:wrap}
+.perday{border-top:1px solid var(--line-2);padding-top:10px}
+.perday summary{cursor:pointer;font-size:14px;color:var(--accent);width:max-content}
+.pdl{list-style:none;margin:8px 0 0;padding:0;font-size:14px}
+.pd{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:4px 10px;align-items:start;padding:6px 0;border-bottom:1px solid var(--line-2)}
+.pd.mon{border-top:1px solid var(--line)}
+.pd-d{display:flex;gap:6px;align-items:center;min-height:32px;cursor:pointer}
+.pd-d input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.pd.off .pd-d span{color:var(--faint)}
+.pd-r{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.pd-r>.muted,.pd-reset{line-height:32px}
+.pd-t{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
+.pd-t .inp{width:auto;padding:5px 6px;font-size:14px}
+@media (max-width:560px){.pd{grid-template-columns:92px minmax(0,1fr)}.pd-reset{grid-column:2;justify-self:start;line-height:1.4}}
 
 /* help */
 .help{max-width:760px}
@@ -280,21 +293,36 @@ const NOWMIN = NOW.getHours()*60 + NOW.getMinutes();
 
 let S = { studies:[], responses:[], assign:[] };
 let BK = null;
-const defaultDraft = () => ({ title:'', owner:'', desc:'', start:addDays(TODAY,1), end:addDays(TODAY,14), days:[1,2,3,4,5], from:'10:00', to:'17:00', dur:60, step:0, per:1, target:8, room:true, place:'', equip:'' });
-const ui = { view:'list', studyId:null, tab:'answer', answer:null, aggAll:false, calWeek:mondayOf(TODAY), draft:defaultDraft(), helpTab:'join', editId:null, saveArm:false, delArm:null, delRespArm:null };
+const defaultDraft = () => ({ title:'', owner:'', desc:'', start:addDays(TODAY,1), end:addDays(TODAY,14), days:[1,2,3,4,5], from:'10:00', to:'17:00', dur:60, step:0, per:1, target:8, room:true, place:'', equip:'', custom:{} });
+const ui = { view:'list', studyId:null, tab:'answer', answer:null, aggAll:false, calWeek:mondayOf(TODAY), draft:defaultDraft(), helpTab:'join', editId:null, saveArm:false, delArm:null, delRespArm:null, perDay:false };
 
 /* ---------- model ---------- */
 const study = id => S.studies.find(s => s.id === id);
 const respOf = sid => S.responses.filter(r => r.studyId === sid);
 const asgOf = sid => S.assign.filter(a => a.studyId === sid);
-function slotsOf(st){
-  const out = [], from = toMin(st.from), to = toMin(st.to);
-  for (let d = st.start; d <= st.end; d = addDays(d,1)) {
-    if (!st.days.includes(dow(d))) continue;
-    for (let m = from; m + st.dur <= to; m += (st.step || st.dur)) out.push({ key:`${d}T${hm(m)}`, date:d, s:m, e:m+st.dur });
-  }
-  return out;
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+/** その日の時間帯（日ごとの時間があればそれ、なければ曜日と時間帯のまとめ設定） */
+function dayRanges(st, d){
+  const c = st.custom || {};
+  if (hasOwn(c, d)) return c[d];
+  return st.days.includes(dow(d)) ? [[st.from, st.to]] : [];
 }
+function slotsOf(st){
+  const out = [], seen = new Set();
+  for (let d = st.start; d <= st.end; d = addDays(d,1)) {
+    for (const [f, t] of dayRanges(st, d)) {
+      for (let m = toMin(f); m + st.dur <= toMin(t); m += (st.step || st.dur)) {
+        const key = `${d}T${hm(m)}`;
+        if (seen.has(key)) continue;
+        seen.add(key); out.push({ key, date:d, s:m, e:m+st.dur });
+      }
+    }
+  }
+  return out.sort((a,b) => a.date.localeCompare(b.date) || a.s - b.s);
+}
+/** 期間内で日ごとに時間を変えた日 */
+const customDays = st => Object.keys(st.custom || {}).filter(d => d >= st.start && d <= st.end);
+const cleanCustom = d => Object.fromEntries(customDays(d).map(k => [k, d.custom[k]]));
 const slotFromKey = (st, key) => { const [date,t] = key.split('T'); const s = toMin(t); return { key, date, s, e:s+st.dur }; };
 const isPast = sl => sl.date < TODAY || (sl.date === TODAY && sl.s <= NOWMIN);
 const overlaps = (a, b) => a.date === b.date && a.s < b.e && b.s < a.e;
@@ -323,9 +351,11 @@ function daysLabel(days){
   if (s.join() === '6,0') return '土日';
   return s.map(n => DOW[n]).join('・');
 }
+const schedText = st => customDays(st).length ? '日によって異なる' : `${daysLabel(st.days)} ${span(tm(toMin(st.from)), tm(toMin(st.to)))}`;
 const placeName = st => st.room ? '研究室' : (st.place || '未定');
 const placeHTML = st => st.room ? '<span class="room-t">研究室</span>' : esc(st.place || '場所未定');
-const weekIndex = (st, date) => Math.max(0, Math.round((parseYmd(mondayOf(date)) - parseYmd(mondayOf(st.start))) / (7*864e5)));
+const ansWeeks = st => [...new Set(slotsOf(st).map(sl => mondayOf(sl.date)))];
+const weekIndex = (st, date) => Math.max(0, ansWeeks(st).indexOf(mondayOf(date)));
 const personName = id => (S.responses.find(r => r.id === id) || {}).name;
 
 function initAnswer(st, r = null){
@@ -427,7 +457,7 @@ function viewList(){
     return `<li class="row${ended ? ' ended' : ''}">
       <div>
         <button class="title" data-act="open" data-id="${st.id}">${esc(st.title)}${ended ? '（終了）' : ''}</button>
-        <div class="meta"><span>${span(fmtDate(st.start), fmtDate(st.end))}</span><span>${daysLabel(st.days)} ${span(tm(toMin(st.from)), tm(toMin(st.to)))}</span><span>${st.dur}分</span></div>
+        <div class="meta"><span>${span(fmtDate(st.start), fmtDate(st.end))}</span><span>${schedText(st)}</span><span>${st.dur}分</span></div>
         <div class="meta">${people(st)}<span>${placeHTML(st)}</span><span>${esc(st.owner)}</span></div>
       </div>
       <div class="acts">
@@ -450,13 +480,19 @@ function validate(d){
   if (!d.start || !d.end) e.push('開始日と終了日を入れてください');
   else if (d.start > d.end) e.push('終了日は開始日以降にしてください');
   else if ((parseYmd(d.end) - parseYmd(d.start)) / 864e5 > 90) e.push('期間は90日以内にしてください');
-  if (!d.days.length) e.push('曜日を選んでください');
-  if (toMin(d.to) - toMin(d.from) < d.dur) e.push('時間帯が所要時間より短いです');
+  if (d.days.length && toMin(d.to) - toMin(d.from) < d.dur) e.push('時間帯が所要時間より短いです');
+  if (!e.length) customDays(d).forEach(x => {
+    const rs = d.custom[x];
+    if (rs.some(([f, t]) => f >= t)) e.push(`${fmtDate(x)}の終了時刻を開始時刻より後にしてください`);
+    else if (rs.some(([f, t]) => toMin(t) - toMin(f) < d.dur)) e.push(`${fmtDate(x)}の時間帯が所要時間より短いです`);
+    else if (rs.some((r, i) => i && r[0] < rs[i-1][1])) e.push(`${fmtDate(x)}の時間帯が重なっています`);
+  });
+  if (!e.length && !slotsOf(d).length) e.push('候補枠が1つもありません。曜日や日ごとの時間を見直してください');
   if (!(d.target >= 1)) e.push('必要人数を1人以上にしてください');
   else if (d.per > d.target) e.push('1枠の人数は必要人数以下にしてください');
   return e;
 }
-const fromStudy = st => ({ title:st.title, owner:st.owner, desc:st.desc, start:st.start, end:st.end, days:[...st.days], from:st.from, to:st.to, dur:st.dur, step:st.step || 0, per:st.per, target:st.target, room:st.room, place:st.place, equip:st.equip });
+const fromStudy = st => ({ custom:JSON.parse(JSON.stringify(st.custom || {})), title:st.title, owner:st.owner, desc:st.desc, start:st.start, end:st.end, days:[...st.days], from:st.from, to:st.to, dur:st.dur, step:st.step || 0, per:st.per, target:st.target, room:st.room, place:st.place, equip:st.equip });
 /** 編集で消える○△と確定の数 */
 function editLoss(){
   const st = study(ui.editId);
@@ -482,6 +518,31 @@ function previewHTML(){
     if (loss.marks || loss.conf) out += `<p class="err" style="margin-top:10px">この変更で、なくなる枠の○△ ${loss.marks}件と確定 ${loss.conf}件が消えます。</p>`;
   }
   return out;
+}
+/** 日ごとの時間の一覧（期間内の全部の日） */
+function perDayHTML(){
+  const d = ui.draft;
+  if (!d.start || !d.end || d.start > d.end || (parseYmd(d.end) - parseYmd(d.start)) / 864e5 > 90) return '<p class="muted small">開始日と終了日を入れると、日付が並びます。</p>';
+  const c = d.custom || {}, rows = [];
+  for (let x = d.start; x <= d.end; x = addDays(x, 1)) {
+    const rs = dayRanges(d, x), on = rs.length > 0, label = fmtDate(x);
+    const times = rs.map(([f, t], i) => `<span class="pd-t"><select class="inp" data-bind="pd-t" data-date="${x}" data-i="${i}" data-k="0" aria-label="${label} 開始時刻">${timeOpts(f)}</select><span>〜</span><select class="inp" data-bind="pd-t" data-date="${x}" data-i="${i}" data-k="1" aria-label="${label} 終了時刻">${timeOpts(t)}</select>${rs.length > 1 ? `<button class="link danger" data-act="pddel" data-date="${x}" data-i="${i}">削除</button>` : ''}${i === rs.length - 1 ? `<button class="link" data-act="pdadd" data-date="${x}">時間帯を追加</button>` : ''}</span>`).join('');
+    rows.push(`<li class="pd${on ? '' : ' off'}${dow(x) === 1 && x !== d.start ? ' mon' : ''}">
+      <label class="pd-d"><input type="checkbox" data-bind="pd-on" data-date="${x}"${on ? ' checked' : ''}><span>${label}</span></label>
+      <div class="pd-r">${on ? times : '<span class="muted">なし</span>'}</div>
+      ${hasOwn(c, x) ? `<button class="link pd-reset" data-act="pdreset" data-date="${x}">戻す</button>` : ''}
+    </li>`);
+  }
+  return `<ul class="pdl">${rows.join('')}</ul>`;
+}
+/** 日ごとの時間を変える。まとめ設定と同じになったら日ごとの設定を消す */
+function setDay(x, rs){
+  const d = ui.draft;
+  rs = rs.map(r => [...r]).sort((a, b) => a[0].localeCompare(b[0]));
+  const base = d.days.includes(dow(x)) ? [[d.from, d.to]] : [];
+  d.custom = { ...(d.custom || {}) };
+  if (JSON.stringify(rs) === JSON.stringify(base)) delete d.custom[x]; else d.custom[x] = rs;
+  disarmSave(); refreshPerDay(); refreshPreview();
 }
 function viewNew(){
   const d = ui.draft, editing = ui.view === 'edit';
@@ -515,6 +576,7 @@ function viewNew(){
           <label class="f">開始の間隔<select class="inp" id="f-step" data-bind="draft" data-f="step" data-num="1">${[[0,'所要時間ごと'],[10,'10分'],[15,'15分'],[30,'30分'],[60,'60分']].map(([v, l]) => `<option value="${v}"${v === (d.step || 0) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
           <label class="f">1枠の人数<select class="inp" id="f-per" data-bind="draft" data-f="per" data-num="1">${perOpts(d)}</select></label>
         </div>
+        <details class="perday" id="perday"${ui.perDay ? ' open' : ''}><summary>日ごとに変える</summary><div id="pdlist">${perDayHTML()}</div></details>
       </fieldset>
       <fieldset><legend>場所と機器</legend>
         <label class="roomck"><input type="checkbox" id="f-room" data-bind="room"${d.room ? ' checked' : ''}><span>研究室を使う<small>確定した時間は、研究室を使うほかの募集では選べなくなります。</small></span></label>
@@ -539,7 +601,7 @@ function viewStudy(){
       <dt>担当</dt><dd>${esc(st.owner)}</dd>
       <dt>場所</dt><dd>${placeHTML(st)}</dd>
       <dt>期間</dt><dd>${span(fmtDate(st.start), fmtDate(st.end))}</dd>
-      <dt>時間帯</dt><dd>${daysLabel(st.days)} ${span(tm(toMin(st.from)), tm(toMin(st.to)))}</dd>
+      <dt>時間帯</dt><dd>${schedText(st)}</dd>
       <dt>1回</dt><dd>${st.dur}分${st.step && st.step !== st.dur ? `・${st.step}分おきに開始` : ''}${st.per > 1 ? `（${st.per}人ずつ）` : ''}</dd>
       <dt>必要人数</dt><dd>${st.target}人</dd>
       ${st.equip ? `<dt>機器</dt><dd>${esc(st.equip)}</dd>` : ''}
@@ -586,25 +648,22 @@ function viewAnswer(st){
 }
 
 function ansCalendar(st){
-  const weeks = [];
-  for (let w = mondayOf(st.start); w <= st.end; w = addDays(w, 7)) weeks.push(w);
+  const weeks = ansWeeks(st);
+  if (!weeks.length) return '<p class="muted">候補の枠がありません。</p>';
   const wi = Math.min(Math.max(ui.answer.week, 0), weeks.length - 1);
   ui.answer.week = wi;
-  const wk = weeks[wi];
-  const cols = ORDER.filter(n => st.days.includes(n)).map(n => addDays(wk, (n + 6) % 7));
-  const inPeriod = d => d >= st.start && d <= st.end;
-  const times = [];
-  for (let m = toMin(st.from); m + st.dur <= toMin(st.to); m += (st.step || st.dur)) times.push(m);
+  const wk = weeks[wi], we = addDays(wk, 6);
+  const ws = slotsOf(st).filter(sl => sl.date >= wk && sl.date <= we);
+  const byKey = new Map(ws.map(sl => [sl.key, sl]));
+  const cols = [...new Set(ws.map(sl => sl.date))];
+  const times = [...new Set(ws.map(sl => sl.s))].sort((x, y) => x - y);
   const head = cols.map(d => {
     const w = dow(d), cls = w === 6 ? ' sat' : w === 0 ? ' sun' : '';
-    const inner = `${md(d)}<span class="w">${DOW[w]}</span>`;
-    return inPeriod(d)
-      ? `<th><button class="dh${cls}" data-act="markday" data-date="${d}" title="この日をまとめて○にする">${inner}</button></th>`
-      : `<th><div class="dh out${cls}">${inner}</div></th>`;
+    return `<th><button class="dh${cls}" data-act="markday" data-date="${d}" title="この日をまとめて○にする">${md(d)}<span class="w">${DOW[w]}</span></button></th>`;
   }).join('');
   const body = times.map(m => `<tr><th class="tm" scope="row">${tm(m)}</th>${cols.map(d => {
-    if (!inPeriod(d)) return '<td><span class="cell off"></span></td>';
-    const sl = { key:`${d}T${hm(m)}`, date:d, s:m, e:m + st.dur };
+    const sl = byKey.get(`${d}T${hm(m)}`);
+    if (!sl) return '<td><span class="cell off"></span></td>';
     const s = slotState(st, sl), label = `${fmtDate(d)} ${tm(m)}`;
     if (s === 'past') return '<td><span class="cell off"></span></td>';
     if (s === 'busy') return `<td><button class="cell busy" disabled aria-label="${label} 研究室が使用中">使用中</button></td>`;
@@ -736,7 +795,8 @@ function viewHelp(){
   const host = `<ol class="steps">
       <li><b>「募集をつくる」を押す</b><p>画面の右上にあります。</p></li>
       <li><b>実験の内容を入れる</b><p>タイトル、担当者、必要人数、説明を入れます。</p></li>
-      <li><b>日程を決める</b><p>期間、曜日、時間帯、1回の所要時間、開始の間隔を選ぶと、候補の枠が自動でできます。開始の間隔を10分にすると、2時間の実験でも10:00、10:10、10:20…と細かく選べます。右側に枠の数が出ます。</p></li>
+      <li><b>日程を決める</b><p>期間、曜日、時間帯、1回の所要時間、開始の間隔を選ぶと、候補の枠が自動でできます。開始の間隔を10分にすると、2時間の実験でも10:00、10:10、10:20…と細かく選べます。右側に枠の数が出ます。</p>
+        <p>週や日によって変えたいときは「日ごとに変える」を開きます。日付ごとに、使うかどうかと時間帯を変えられます。1日に時間帯を2つ以上入れることもできます。</p></li>
       <li><b>場所を選ぶ</b><p>研究室で行うなら「研究室を使う」にチェックします。研究室を使うほかの実験で確定している時間は、参加者が選べなくなります。ほかの部屋で行うなら、場所を書きます。</p></li>
       <li><b>公開して、リンクを送る</b><p>「公開する」を押したら「集計・確定」を開き、リンクをコピーしてSlackに送ります。</p></li>
       <li><b>日時を確定する</b><p>「集計・確定」の表で、参加者の ○ か △ を押すと、その人をその日時で確定します。「確定」をもう一度押すと取り消せます。</p>
@@ -775,7 +835,16 @@ function arm(key, id){
 }
 
 const actions = {
-  go(t){ ui.view = t.dataset.view; if (ui.view === 'new' && ui.editId) { ui.editId = null; ui.draft = defaultDraft(); } render(); top0(); },
+  go(t){ ui.view = t.dataset.view; if (ui.view === 'new' && ui.editId) { ui.editId = null; ui.draft = defaultDraft(); ui.perDay = false; } render(); top0(); },
+  pdadd(t){
+    const d = ui.draft, x = t.dataset.date, rs = dayRanges(d, x).map(r => [...r]);
+    let s = rs.length ? toMin(rs[rs.length - 1][1]) : toMin(d.from);
+    if (s + d.dur > 21*60) s = Math.max(8*60, 21*60 - d.dur);
+    rs.push([hm(s), hm(Math.min(s + d.dur, 21*60))]);
+    setDay(x, rs);
+  },
+  pddel(t){ const x = t.dataset.date, rs = dayRanges(ui.draft, x).map(r => [...r]); rs.splice(Number(t.dataset.i), 1); setDay(x, rs); },
+  pdreset(t){ const d = ui.draft; d.custom = { ...d.custom }; delete d.custom[t.dataset.date]; disarmSave(); refreshPerDay(); refreshPreview(); },
   open(t){ openStudy(t.dataset.id, t.dataset.tab); render(); top0(); },
   tab(t){ ui.tab = t.dataset.tab; render(); },
   helptab(t){ ui.helpTab = t.dataset.tab; render(); },
@@ -833,7 +902,7 @@ const actions = {
     const d = ui.draft, errs = validate(d);
     if (!d.title.trim()) errs.unshift('タイトルを入れてください');
     if (errs.length) { toast(errs[0]); return; }
-    call('apiCreateStudy', { ...d, days:[...d.days] }, {
+    call('apiCreateStudy', { ...d, days:[...d.days], custom:cleanCustom(d) }, {
       apply(){ creating = true; return () => { creating = false; }; },
       done(info, st){
         creating = false;
@@ -879,7 +948,7 @@ const actions = {
   },
   edit(){
     const st = study(ui.studyId);
-    ui.editId = st.id; ui.draft = fromStudy(st); ui.saveArm = false; ui.view = 'edit';
+    ui.editId = st.id; ui.draft = fromStudy(st); ui.saveArm = false; ui.perDay = customDays(ui.draft).length > 0; ui.view = 'edit';
     render(); top0();
   },
   canceledit(){ ui.view = 'study'; ui.saveArm = false; ui.draft = defaultDraft(); render(); top0(); },
@@ -890,8 +959,8 @@ const actions = {
     const loss = editLoss();
     if ((loss.marks || loss.conf) && !ui.saveArm) { ui.saveArm = true; render(); return; }
     ui.saveArm = false;
-    const payload = { ...d, days:[...d.days], id };
-    const draft = clone(d);
+    const payload = { ...d, days:[...d.days], custom:cleanCustom(d), id };
+    const draft = clone({ ...d, custom:payload.custom });
     call('apiUpdateStudy', payload, {
       apply(){
         const st = study(id);
@@ -921,8 +990,16 @@ app.addEventListener('click', e => {
 function onField(t){
   const b = t.dataset.bind;
   if (b === 'draft' || b === 'day' || b === 'room') disarmSave();
-  if (b === 'draft') { ui.draft[t.dataset.f] = t.dataset.num ? Number(t.value) : t.value; if (t.dataset.f === 'target') refreshPer(); refreshPreview(); }
-  else if (b === 'day') { const s = new Set(ui.draft.days), n = Number(t.value); if (t.checked) s.add(n); else s.delete(n); ui.draft.days = [...s]; refreshPreview(); }
+  if (b === 'draft') {
+    const f = t.dataset.f;
+    ui.draft[f] = t.dataset.num ? Number(t.value) : t.value;
+    if (f === 'target') refreshPer();
+    if (f === 'start' || f === 'end' || f === 'from' || f === 'to') refreshPerDay();
+    refreshPreview();
+  }
+  else if (b === 'day') { const s = new Set(ui.draft.days), n = Number(t.value); if (t.checked) s.add(n); else s.delete(n); ui.draft.days = [...s]; refreshPerDay(); refreshPreview(); }
+  else if (b === 'pd-on') setDay(t.dataset.date, t.checked ? [[ui.draft.from, ui.draft.to]] : []);
+  else if (b === 'pd-t') { const x = t.dataset.date, rs = dayRanges(ui.draft, x).map(r => [...r]); rs[Number(t.dataset.i)][Number(t.dataset.k)] = t.value; setDay(x, rs); }
   else if (b === 'room') { ui.draft.room = t.checked; document.getElementById('placewrap').hidden = t.checked; refreshPreview(); }
   else if (b === 'ans') { ui.answer[t.dataset.f] = t.value; }
   else if (b === 'agg-filter') { ui.aggAll = !t.checked; render(); }
@@ -943,6 +1020,8 @@ function refreshPer(){
   if (d.per > perMax(d)) d.per = perMax(d);
   if (sel) sel.innerHTML = perOpts(d);
 }
+function refreshPerDay(){ const el = document.getElementById('pdlist'); if (el) el.innerHTML = perDayHTML(); }
+app.addEventListener('toggle', e => { if (e.target.id === 'perday') ui.perDay = e.target.open; }, true);
 function refreshPreview(){ const pv = document.getElementById('pv'); if (pv) pv.innerHTML = previewHTML(); }
 
 app.innerHTML = '<p style="padding:32px 20px;color:var(--muted)">読み込み中…</p>';
