@@ -442,6 +442,8 @@ function viewList(){
 }
 
 /* ---------- new study ---------- */
+const perMax = d => Math.min(300, Math.max(1, Math.floor(d.target) || 1));
+const perOpts = d => { let o = ''; for (let n = 1; n <= perMax(d); n++) o += `<option value="${n}"${n === d.per ? ' selected' : ''}>${n}人</option>`; return o; };
 const timeOpts = sel => { let o = ''; for (let m = 8*60; m <= 21*60; m += 10) { const t = hm(m); o += `<option value="${t}"${t === sel ? ' selected' : ''}>${tm(m)}</option>`; } return o; };
 function validate(d){
   const e = [];
@@ -451,6 +453,7 @@ function validate(d){
   if (!d.days.length) e.push('曜日を選んでください');
   if (toMin(d.to) - toMin(d.from) < d.dur) e.push('時間帯が所要時間より短いです');
   if (!(d.target >= 1)) e.push('必要人数を1人以上にしてください');
+  else if (d.per > d.target) e.push('1枠の人数は必要人数以下にしてください');
   return e;
 }
 const fromStudy = st => ({ title:st.title, owner:st.owner, desc:st.desc, start:st.start, end:st.end, days:[...st.days], from:st.from, to:st.to, dur:st.dur, step:st.step || 0, per:st.per, target:st.target, room:st.room, place:st.place, equip:st.equip });
@@ -510,7 +513,7 @@ function viewNew(){
           <label class="f">終了時刻<select class="inp" id="f-to" data-bind="draft" data-f="to">${timeOpts(d.to)}</select></label>
           <label class="f">1回の所要時間<select class="inp" id="f-dur" data-bind="draft" data-f="dur" data-num="1">${DURS.map(m => `<option value="${m}"${m === d.dur ? ' selected' : ''}>${m}分</option>`).join('')}</select></label>
           <label class="f">開始の間隔<select class="inp" id="f-step" data-bind="draft" data-f="step" data-num="1">${[[0,'所要時間ごと'],[10,'10分'],[15,'15分'],[30,'30分'],[60,'60分']].map(([v, l]) => `<option value="${v}"${v === (d.step || 0) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-          <label class="f">1枠の人数<select class="inp" id="f-per" data-bind="draft" data-f="per" data-num="1">${[1,2,3,4,5,6].map(n => `<option value="${n}"${n === d.per ? ' selected' : ''}>${n}人</option>`).join('')}</select></label>
+          <label class="f">1枠の人数<select class="inp" id="f-per" data-bind="draft" data-f="per" data-num="1">${perOpts(d)}</select></label>
         </div>
       </fieldset>
       <fieldset><legend>場所と機器</legend>
@@ -918,7 +921,7 @@ app.addEventListener('click', e => {
 function onField(t){
   const b = t.dataset.bind;
   if (b === 'draft' || b === 'day' || b === 'room') disarmSave();
-  if (b === 'draft') { ui.draft[t.dataset.f] = t.dataset.num ? Number(t.value) : t.value; refreshPreview(); }
+  if (b === 'draft') { ui.draft[t.dataset.f] = t.dataset.num ? Number(t.value) : t.value; if (t.dataset.f === 'target') refreshPer(); refreshPreview(); }
   else if (b === 'day') { const s = new Set(ui.draft.days), n = Number(t.value); if (t.checked) s.add(n); else s.delete(n); ui.draft.days = [...s]; refreshPreview(); }
   else if (b === 'room') { ui.draft.room = t.checked; document.getElementById('placewrap').hidden = t.checked; refreshPreview(); }
   else if (b === 'ans') { ui.answer[t.dataset.f] = t.value; }
@@ -933,6 +936,13 @@ function disarmSave(){
 const isChoice = t => t.type === 'checkbox' || t.tagName === 'SELECT';
 app.addEventListener('input', e => { if (e.target.dataset.bind && !isChoice(e.target)) onField(e.target); });
 app.addEventListener('change', e => { if (e.target.dataset.bind && isChoice(e.target)) onField(e.target); });
+/** 必要人数に合わせて「1枠の人数」の選択肢を作り直す */
+function refreshPer(){
+  const d = ui.draft, sel = document.getElementById('f-per');
+  if (!(d.target >= 1)) return;
+  if (d.per > perMax(d)) d.per = perMax(d);
+  if (sel) sel.innerHTML = perOpts(d);
+}
 function refreshPreview(){ const pv = document.getElementById('pv'); if (pv) pv.innerHTML = previewHTML(); }
 
 app.innerHTML = '<p style="padding:32px 20px;color:var(--muted)">読み込み中…</p>';
