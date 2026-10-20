@@ -261,7 +261,6 @@ button.ac.o:hover,button.ac.t:hover{border-color:var(--accent)}
  * fetch は Google のログイン情報を送らないので、どのアカウントでログインしていても同じように開ける。
  */
 const API = 'https://script.google.com/macros/s/AKfycbxKIsnccB4PDuqBnLUGmZOXV4ycZqYbLhZWZzlLvRlsnQhYT-4ApQ9TUGqcffCzrl_v/exec';
-const PARAMS = new URLSearchParams(location.search);
 const appUrl = () => location.origin + location.pathname;
 async function api(fn, arg){
   const res = fn === 'apiState'
@@ -429,7 +428,39 @@ function render(){
   app.querySelectorAll('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollLeft; });
   app.innerHTML = shell();
   app.querySelectorAll('[data-keep]').forEach(el => { if (keep[el.dataset.keep] != null) el.scrollLeft = keep[el.dataset.keep]; });
+  syncUrl();
 }
+
+/* ---------- アドレスバーのURLを今の画面に合わせる（コピーして送れる、戻るで前の画面へ） ---------- */
+function urlQuery(){
+  const v = ui.view;
+  if (v === 'study' && study(ui.studyId)) return `?s=${ui.studyId}${ui.tab === 'admin' ? '&t=admin' : ''}`;
+  if (v === 'edit' && study(ui.editId)) return `?s=${ui.editId}&v=edit`;
+  if (v === 'cal' || v === 'new') return `?v=${v}`;
+  if (v === 'help') return ui.helpTab === 'host' ? '?v=help&h=host' : '?v=help';
+  return '';
+}
+let urlReady = false;   // 開いた直後の1回は履歴を増やさない
+function syncUrl(){
+  const q = urlQuery(), st = ui.view === 'study' || ui.view === 'edit' ? study(ui.view === 'edit' ? ui.editId : ui.studyId) : null;
+  document.title = st ? `${st.title}｜実験日程調整` : '実験日程調整';
+  if (q !== location.search) history[urlReady ? 'pushState' : 'replaceState'](null, '', q || location.pathname);
+  urlReady = true;
+}
+/** URLから画面を決める（開いたとき・戻る／進むのとき） */
+function applyUrl(){
+  const p = new URLSearchParams(location.search);
+  const id = (p.get('s') || '').replace(/[^A-Za-z0-9_-]/g, ''), v = p.get('v');
+  if (id && study(id)) {
+    if (v === 'edit') { ui.editId = id; ui.draft = fromStudy(study(id)); ui.saveArm = false; ui.view = 'edit'; }
+    else openStudy(id, p.get('t') === 'admin' ? 'admin' : 'answer');
+  } else if (v === 'cal' || v === 'help' || v === 'new') {
+    if (v === 'new' && ui.view !== 'new') { ui.editId = null; ui.draft = defaultDraft(); ui.perDay = false; }
+    ui.view = v;
+    if (v === 'help') ui.helpTab = p.get('h') === 'host' ? 'host' : 'join';
+  } else ui.view = 'list';
+}
+window.addEventListener('popstate', () => { applyUrl(); render(); top0(); });
 
 function shell(){
   const v = ui.view;
@@ -1066,8 +1097,7 @@ function refreshPreview(){ const pv = document.getElementById('pv'); if (pv) pv.
 app.innerHTML = '<p style="padding:32px 20px;color:var(--muted)">読み込み中…</p>';
 api('apiState').then(st => {
   applyState(st);
-  const id = (PARAMS.get('s') || '').replace(/[^A-Za-z0-9_-]/g, '');
-  if (id && study(id)) openStudy(id);
+  applyUrl();
   render();
 }).catch(() => {
   app.innerHTML = '<p style="padding:32px 20px">読み込めませんでした。少し待ってから、ページを開き直してください。</p>';
